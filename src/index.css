@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+@media print {
+  
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+
+  /* Hide everything except the resume area */
+  body > *:not(#root) {
+    display: none !important;
+  }
+
+  /* 2. 隐藏不需要打印的元素（侧边栏、导出按钮等），你可以在不需要打印的元素上加 class="no-print" */
+  .editor-container, 
+  .no-print,
+  button,
+  nav {
+    display: none !important;
+  }
+
+  #root, main, .preview-container {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 3. 重置简历容器的缩放和居中，确保占满 A4 纸 */
+  #resume-print-area {
+    display: block !important;
+    width: 210mm !important;
+    margin: 0 auto !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure colors and backgrounds are printed */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 4. 修复分页截断文字：禁止在简历模块内部发生分页断裂 */
+  /* 请确保你的简历区块（如每个项目经验、教育经历）有这些 class，或者直接替换为你的实际 class */
+  /* .resume-section, 
+  .resume-item, 
+  h1, h2, h3, p, li {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  } */
+
+  /* 5. 设置 A4 纸张和安全边距 */
+  @page {
+    size: A4;/* portrait */
+    margin: 0; /* 上下 15mm，左右 10mm 边距 */
+  }
+}
+
+/* Custom scrollbar for better UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* 表格简历模板样式 */
+
+.table-resume-tpl table tr td {
+  word-break: break-word;
+  white-space: pre-wrap;
+}
