@@ -123,8 +123,6 @@ export function AnalysisModule({ resumeData }: { resumeData: any }) {
       // 具体实现可以根据产品需求和用户体验设计来调整
       try {
         const newResume = await apiService.createResume('AI优化的简历', aiOptimizedResume);
-        // setResumes([newResume, ...resumes]);
-        // onSelectResume(newResume.id, newResume.data);
         alert('AI优化的新简历已保存到您的简历列表中');
       } catch (err) {
         console.error(err);
@@ -133,8 +131,6 @@ export function AnalysisModule({ resumeData }: { resumeData: any }) {
       alert(error instanceof Error ? error.message : 'AI 生成新简历失败');
     } finally {
       setLoadingType(null);
-      // setResumes([newResume, ...resumes]);
-      // onSelectResume(newResume.id, newResume.data);
     }
   };
   
