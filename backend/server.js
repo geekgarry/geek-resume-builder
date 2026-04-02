@@ -395,7 +395,7 @@ app.delete('/api/admin/resumes/:id', authenticateToken, isAdmin, async (req, res
 // --- AI ROUTES ---
 const { GoogleGenAI } = require('@google/genai');
 // 初始化 Gemini API，确保你的 .env 文件中有 GEMINI_API_KEY
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "your-api-key-here" });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "your_gemini_api_key_here" });
 
 app.post('/api/ai-optimize', authenticateToken, async (req, res) => {
   const { text, contextType } = req.body;
@@ -540,7 +540,7 @@ app.post('/api/ai/analyze', authenticateToken, async (req, res) => {
       parts.push({ text: `个人简历数据：\n${JSON.stringify(resumeData)}` });
       if (text) parts.shift(); parts.push({ text: `个人简历数据：\n${JSON.stringify(resumeData)}\n目标岗位描述文本：\n${text}` });
     } else if(type === 'generate') {
-      systemInstruction = "你是一个资深的HR和职业规划师。请根据提供的个人简历数据，分析其优势和劣势，并结合当前的行业岗位需求，自动优化修改符合岗位要求生成一份新的简历内容。返回内容结构和接收的resumeData的json格式要一致，直接返回修改优化后的完整简历内容，不要包含任何多余的解释、问候语或前缀。不要包含任何 Markdown 标记。";
+      systemInstruction = "你是一个资深的HR和职业规划师。请根据提供的个人简历数据，分析其优势和劣势，并结合当前的行业岗位需求，自动优化修改符合岗位要求生成一份新的简历内容。返回内容结构和接收的resumeData的内容格式要一致，内容完整并且只多不少，不要减少原内容，直接返回修改优化后的完整简历内容，不要包含任何多余的解释、问候语或前缀。不要包含任何 Markdown 标记。";
       parts.push({ text: `个人简历数据：\n${JSON.stringify(resumeData)}` });
       if(text) parts.shift(); parts.push({ text: `个人简历数据：\n${JSON.stringify(resumeData)}\n目标岗位描述文本：\n${text}` });
     }
@@ -590,6 +590,10 @@ app.post('/api/stream/ai/analyze', async (req, res) => {
         systemInstruction = "你是一个资深的HR和职业规划师。请根据提供的个人简历数据，分析其优势和劣势。如果用户还提供了目标岗位描述，请结合岗位描述进行【人岗匹配度】的深度综合分析，指出匹配的亮点、需要弥补的短板，并给出针对性的面试建议和简历修改的建议和修改后的内容。给出技术面试的试题示例和解题思路。并且请用【】符号标注出简历中的亮点和岗位中的关键要求，方便前端高亮显示。";
         parts.push({ text: `个人简历数据：\n${JSON.stringify(resumeData)}` });
         if (text) parts.shift(); parts.push({ text: `个人简历数据：\n${JSON.stringify(resumeData)}\n目标岗位描述文本：\n${text}` });
+      } else if(type === 'generate') {
+        systemInstruction = "你是一个资深的HR和职业规划师。请根据提供的个人简历数据，分析其优势和劣势，并结合当前的行业岗位需求，自动优化修改符合岗位要求生成一份新的简历内容。返回内容结构和接收的resumeData的内容格式要一致，内容完整并且只多不少，不要减少原内容，直接返回修改优化后的完整简历内容，不要包含任何多余的解释、问候语或前缀。不要包含任何 Markdown 标记。";
+        parts.push({ text: `个人简历数据：\n${JSON.stringify(resumeData)}` });
+        if(text) parts.shift(); parts.push({ text: `个人简历数据：\n${JSON.stringify(resumeData)}\n目标岗位描述文本：\n${text}` });
       }
 
       // 处理上传的文件 (图片或 PDF)
