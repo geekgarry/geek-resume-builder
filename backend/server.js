@@ -355,6 +355,7 @@ app.get('/api/admin/resumes', authenticateToken, isAdmin, async (req, res) => {
   }
 });
 
+// admin 获取任何用户的简历数据，这个接口需要传递简历 ID 来获取对应的简历数据
 // Get specific resume (Admin)
 app.get('/api/admin/resumes/:id', authenticateToken, isAdmin, async (req, res) => {
   if (process.env.NODE_ENV === 'production') {
@@ -377,6 +378,7 @@ app.get('/api/admin/resumes/:id', authenticateToken, isAdmin, async (req, res) =
   }
 });
 
+// admin 删除任何用户的简历数据，这个接口需要传递简历 ID 来删除对应的简历数据，管理员可以删除任何用户的简历数据，这个接口需要传递简历 ID 来删除对应的简历数据
 // Delete resume (Admin)
 app.delete('/api/admin/resumes/:id', authenticateToken, isAdmin, async (req, res) => {
   if (process.env.NODE_ENV === 'production') {
@@ -392,7 +394,23 @@ app.delete('/api/admin/resumes/:id', authenticateToken, isAdmin, async (req, res
   }
 });
 
-// --- AI ROUTES ---
+// admin 更新任何用户的简历数据，这个接口需要传递简历 ID 和更新内容来修改对应的简历数据
+app.put('/api/admin/resumes/:id', authenticateToken, isAdmin, async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ error: 'This feature is disabled in production for privacy reasons.' });
+  }
+  try {
+    const { title, data } = req.body;
+    const [result] = await pool.query('UPDATE resumes SET title = ?, resume_data = ? WHERE id = ?', [title, JSON.stringify(data), req.params.id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: 'Resume not found' });
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Gemini AI 接口，简历优化接口，支持流式返回优化结果，前端可以根据返回的流式数据实时展示优化后的内容，提升用户体验
 const { GoogleGenAI } = require('@google/genai');
 // 初始化 Gemini API，确保你的 .env 文件中有 GEMINI_API_KEY
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "your_gemini_api_key_here" });
