@@ -645,6 +645,7 @@ export default function App() {
           marginY: 10,
           isPaginated: mode === "paginated",
           fileName,
+          currentTemplate,
         });
       } catch (error) {
         console.error("Error generating PDF:", error);

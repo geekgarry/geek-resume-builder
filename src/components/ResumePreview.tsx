@@ -821,8 +821,8 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
     // 取消固定纵横比、取消内部滚动条，内容自适应高度
     <div className="bg-slate-900 text-white font-sans w-full overflow-hidden max-w-[960px] mx-auto p-10 shadow-2xl print:shadow-none print:m-0 relative flex flex-col">
       {/* 背景装饰 */}
-      <div className="absolute top-[-10%] right-[-5%] w-[50%] h-[150%] bg-gradient-to-bl from-blue-600/30 to-purple-600/10 transform rotate-12 skew-x-12 pointer-events-none"></div>
-      <div className="absolute bottom-[-20%] left-[-10%] w-[40%] h-[60%] bg-gradient-to-tr from-teal-500/20 to-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+      <div className="absolute top-0 right-[-5%] w-[50%] h-full bg-gradient-to-bl from-blue-600/30 to-purple-600/10 transform rotate-12 skew-x-12 pointer-events-none"></div>
+      <div className="absolute bottom-[-5%] left-[-10%] w-[40%] h-[60%] bg-gradient-to-tr from-teal-500/20 to-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* 头部区域 */}
       <div className="flex items-center gap-8 mb-8 relative z-10 border-b border-white/20 pb-6">
@@ -883,6 +883,15 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
             </section>
           )}
 
+          {data.skills && (
+            <section>
+              <h2 className="text-xl font-bold text-emerald-400 mb-3 flex items-center gap-2 uppercase tracking-widest"><span className="w-8 h-1 bg-emerald-500 rounded"></span> Skills</h2>
+              <div className="bg-white/5 p-4 rounded-lg border border-white/10">
+                <p className="text-sm text-gray-300">{data.skills}</p>
+              </div>
+            </section>
+          )}
+
           {/* 获奖情况 */}
           {data.awards && data.awards.filter(a => !a.isHidden).length > 0 && (
             <section>
@@ -932,15 +941,6 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
                     <p className="text-xs text-gray-300 line-clamp-15">{p.description}</p>
                   </div>
                 ))}
-              </div>
-            </section>
-          )}
-
-          {data.skills && (
-            <section>
-              <h2 className="text-xl font-bold text-emerald-400 mb-3 flex items-center gap-2 uppercase tracking-widest"><span className="w-8 h-1 bg-emerald-500 rounded"></span> Skills</h2>
-              <div className="bg-white/5 p-4 rounded-lg border border-white/10">
-                <p className="text-sm text-gray-300">{data.skills}</p>
               </div>
             </section>
           )}
