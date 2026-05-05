@@ -11,6 +11,7 @@ interface EditorProps {
 
 export function ResumeEditor({ data, onChange, template }: EditorProps) {
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Drag and Drop State
@@ -105,7 +106,7 @@ export function ResumeEditor({ data, onChange, template }: EditorProps) {
 
   const removeAvatar = () => {
     updateBasics('avatar', '');
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
   };
 
   // Work Drag & Drop Handlers
@@ -183,7 +184,7 @@ export function ResumeEditor({ data, onChange, template }: EditorProps) {
               type="file"
               ref={fileInputRef}
               onChange={handleFileUpload}
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              accept="*/*"
               className="hidden"
             />
             <button
@@ -217,7 +218,7 @@ export function ResumeEditor({ data, onChange, template }: EditorProps) {
           <div className="flex flex-col items-center gap-2 shrink-0">
             <div 
               className="w-20 h-28 md:w-24 md:h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center bg-gray-50 cursor-pointer hover:bg-gray-100 relative overflow-hidden group"
-              onClick={() => !data.basics.avatar && fileInputRef.current?.click()}
+              onClick={() => !data.basics.avatar && avatarInputRef.current?.click()}
             >
               {data.basics.avatar ? (
                 <>
@@ -237,7 +238,7 @@ export function ResumeEditor({ data, onChange, template }: EditorProps) {
             </div>
             <input title="上传头像"
               type="file" 
-              ref={fileInputRef} 
+              ref={avatarInputRef} 
               onChange={handleAvatarUpload} 
               accept="image/*" 
               className="hidden" 
