@@ -64,10 +64,17 @@ export function ResumeEditor({ data, onChange, template }: EditorProps) {
   };
 
   const handleGenerateFullResume = async () => {
-    if (!aiPrompt.trim()) return alert('请输入您的基本信息');
+    if (!aiPrompt.trim() && !uploadedFile) return alert('请输入基本信息或上传简历文件');
     setIsGenerating(true);
     try {
-      const generatedData = await aiService.generateFullResume(aiPrompt);
+      let generatedData;
+      if (uploadedFile) {
+        // 如果有上传文件，使用文件生成简历
+        generatedData = await aiService.generateFullResumeFromFile(uploadedFile, aiPrompt);
+      } else {
+        // 使用文本生成简历
+        generatedData = await aiService.generateFullResume(aiPrompt);
+      }
       // 将生成的数据与现有数据合并（保留未生成的字段）
       onChange({ ...data, ...generatedData });
       alert('简历生成成功！');
