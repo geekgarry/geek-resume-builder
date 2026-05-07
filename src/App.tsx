@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { ResumeData, User, defaultResumeData, ResumeTemplate } from "./types";
 import { storageService } from "./services/storage";
 import { apiService } from "./services/api";
+import { AnalysisModule } from "./components/AnalysisModule";
 import { ResumeEditor } from "./components/ResumeEditor";
 import { ResumePreview } from "./components/ResumePreview";
 import { AuthModal } from "./components/AuthModal";
