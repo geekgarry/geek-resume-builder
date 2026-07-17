@@ -1,5 +1,23 @@
 import jsPDF from "jspdf";
 
+// 由于 jsPDF 对 JPEG 的支持更好，我们在这里将 PNG 转换为 JPEG 来提高性能和兼容性
+// 这个函数将 OffscreenCanvas 转换为 JPEG 格式的 Data URL
+const convertCanvasToJpegDataUrl = async (
+  canvas: OffscreenCanvas,
+  quality = 0.8,
+) => {
+  const blob = await canvas.convertToBlob({
+    type: "image/jpeg",
+    quality,
+  });
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+};
+
 self.onmessage = async (e) => {
   const { imgData, pdfWidth, pdfHeight, marginY, isPaginated, fileName } =
     e.data;
@@ -21,7 +39,8 @@ self.onmessage = async (e) => {
     const pageHeightInCanvas = (pdfHeight - marginY * 2) * scale;
 
     if (!isPaginated) {
-      const pdfTotalImgHeight = (canvasHeight * pdfWidth) / canvasWidth;
+      // 不分页模式
+      const pdfTotalImgHeight = canvasHeight / scale;
       pdf = new jsPDF({
         orientation: pdfTotalImgHeight > pdfWidth ? "portrait" : "landscape",
         unit: "mm",
@@ -40,8 +59,6 @@ self.onmessage = async (e) => {
         "",
         "FAST",
       );
-      // 不分页模式
-      // const pdfTotalImgHeight = canvasHeight / scale;
       //   pdf.addImage(imgData, 'PNG', 0, marginY, pdfWidth, pdfTotalImgHeight);
 
       //   let heightLeft = pdfTotalImgHeight - (pdfHeight - marginY * 2);
@@ -134,6 +151,68 @@ self.onmessage = async (e) => {
         return true;
       };
 
+      // 新增：计算某一行的文字像素总数，用于极限情况下的“伤害最小化”切断
+      const countContentPixels = (y: number) => {
+        const getPixel = (x: number, y: number) => {
+          const i = (y * canvasWidth + x) * 4;
+          return { r: data[i], g: data[i + 1], b: data[i + 2], a: data[i + 3] };
+        };
+        const leftBg = getPixel(10, y);
+        const centerBg = getPixel(Math.floor(canvasWidth / 2), y);
+        const rightBg = getPixel(canvasWidth - 10, y);
+        let contentPixels = 0;
+        for (let x = 0; x < canvasWidth; x++) {
+          const p = getPixel(x, y);
+          if (p.a < 10) continue;
+          const diffL =
+            Math.abs(p.r - leftBg.r) +
+            Math.abs(p.g - leftBg.g) +
+            Math.abs(p.b - leftBg.b);
+          const diffC =
+            Math.abs(p.r - centerBg.r) +
+            Math.abs(p.g - centerBg.g) +
+            Math.abs(p.b - centerBg.b);
+          const diffR =
+            Math.abs(p.r - rightBg.r) +
+            Math.abs(p.g - rightBg.g) +
+            Math.abs(p.b - rightBg.b);
+          if (Math.min(diffL, diffC, diffR) > 30) {
+            let isVerticalLine = true;
+            for (let dy = -10; dy <= 10; dy++) {
+              if (dy === 0) continue;
+              const ny = y + dy;
+              if (ny < 0 || ny >= canvasHeight) continue;
+              const np = getPixel(x, ny);
+              if (
+                Math.abs(p.r - np.r) +
+                  Math.abs(p.g - np.g) +
+                  Math.abs(p.b - np.b) >
+                15
+              ) {
+                isVerticalLine = false;
+                break;
+              }
+            }
+            if (!isVerticalLine) contentPixels++;
+          }
+        }
+        return contentPixels;
+      };
+
+      // 判断某行是否为纯白背景（采样整行，避免漏检窄色带）
+      const isPureWhiteRow = (y: number) => {
+        const clampedY = Math.max(0, Math.min(y, canvasHeight - 1));
+        const step = Math.max(1, Math.floor(canvasWidth / 100));
+        for (let x = 0; x < canvasWidth; x += step) {
+          const i = (clampedY * canvasWidth + x) * 4;
+          if (data[i + 3] < 10) continue;
+          if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255) {
+            return false;
+          }
+        }
+        return true;
+      };
+
       let currentY = 0;
       let pageIndex = 0;
 
@@ -146,14 +225,9 @@ self.onmessage = async (e) => {
         if (idealY < canvasHeight) {
           let foundSafe = false;
 
-          // 1. 先在常规范围内寻找（约 180px，大概 4-5 行文字的高度）
-          const normalSearchRange = Math.floor(30 * (canvasWidth / 800));
-          for (
-            let y = idealY;
-            y > idealY - normalSearchRange && y > currentY;
-            y--
-          ) {
-            // 连续 4 行都是空白，才认为是安全的行间距，确保不切断文字
+          // 1. 优先在底部 25% 范围内寻找完美的行间距 (连续 4 行空白)
+          const range1 = Math.floor(pageHeightInCanvas * 0.02);
+          for (let y = idealY; y > idealY - range1 && y > currentY; y--) {
             if (
               isSafeRow(y) &&
               isSafeRow(y - 1) &&
@@ -166,18 +240,11 @@ self.onmessage = async (e) => {
             }
           }
 
-          // 2. 核心优化：如果常规范围内找不到（左右都有文字切不断），则扩大搜索范围到整页高度
-          // 保证取最小于高度减去两个上下margin的高度内，任意一个部分，保证不切断任意行文字
+          // 2. 如果找不到，放宽条件：在底部 30% 范围内寻找较小的行间距 (连续 2 行空白)
           if (!foundSafe) {
-            const searchRange = Math.floor(pageHeightInCanvas * 0.15);
-            // for(let y = idealY; y > idealY - searchRange && y > currentY + 50; y--) {
-            for (let y = idealY - normalSearchRange; y > currentY + 50; y--) {
-              if (
-                isSafeRow(y) &&
-                isSafeRow(y - 1) &&
-                isSafeRow(y - 2) &&
-                isSafeRow(y - 3)
-              ) {
+            const range2 = Math.floor(pageHeightInCanvas * 0.04);
+            for (let y = idealY; y > idealY - range2 && y > currentY; y--) {
+              if (isSafeRow(y) && isSafeRow(y - 1)) {
                 safeY = y - 1;
                 foundSafe = true;
                 break;
@@ -185,7 +252,38 @@ self.onmessage = async (e) => {
             }
           }
 
-          if (!foundSafe) safeY = idealY; // 极端情况：整页连一丝缝隙都没有，只能硬切
+          // 3. 如果还是找不到，继续放宽：在底部 35% 范围内寻找哪怕 1 行空白
+          if (!foundSafe) {
+            const range3 = Math.floor(pageHeightInCanvas * 0.06);
+            for (let y = idealY; y > idealY - range3 && y > currentY; y--) {
+              if (isSafeRow(y)) {
+                safeY = y;
+                foundSafe = true;
+                break;
+              }
+            }
+          }
+
+          // 4. 极限情况：底部 10% 全是密集的文字/图片，没有任何空白行。
+          // 为了不切分得太早（保留至少 90% 的内容），我们只能在 idealY 附近（底部 15%）寻找一个“伤害最小”的切断点
+          if (!foundSafe) {
+            let minPixels = Infinity;
+            let bestY = idealY;
+            const searchRange = Math.floor(pageHeightInCanvas * 0.08);
+
+            for (
+              let y = idealY;
+              y > idealY - searchRange && y > currentY;
+              y--
+            ) {
+              const pixels = countContentPixels(y);
+              if (pixels < minPixels) {
+                minPixels = pixels;
+                bestY = y;
+              }
+            }
+            safeY = bestY;
+          }
         } else {
           safeY = canvasHeight;
         }
@@ -221,65 +319,87 @@ self.onmessage = async (e) => {
 
           const pdfSliceHeight = sliceHeight / scale;
 
-          // 3. 核心优化：动态边缘背景填充
-          // 提取当前切片顶部和底部 1px 的像素，垂直拉伸填充到 Margin 区域，完美适应多列/渐变背景
+          // 每一页上下 margin 都填充：纯白背景用白色矩形，非纯白仍用 1px 像素拉伸
+          const topIsWhite = isPureWhiteRow(currentY);
+          const bottomIsWhite = isPureWhiteRow(safeY - 1);
 
-          // 填充顶部 Margin
-          if (currentY > 0 || marginY > 0) {
-            const topRowCanvas = new OffscreenCanvas(canvasWidth, 1);
-            const topRowCtx = topRowCanvas.getContext("2d");
-            if (topRowCtx) {
-              topRowCtx.drawImage(
-                bitmap,
-                0,
-                currentY,
-                canvasWidth,
-                1,
-                0,
-                0,
-                canvasWidth,
-                1,
-              );
-              const topRowBlob = await topRowCanvas.convertToBlob({
-                type: "image/png",
-              });
-              const topRowDataUrl = await new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.readAsDataURL(topRowBlob);
-              });
-              // 将 1px 高的图像拉伸填充整个顶部 margin
-              pdf.addImage(topRowDataUrl, "PNG", 0, 0, pdfWidth, marginY);
+          // 填充顶部 Margin（每一页都做）
+          if (marginY > 0) {
+            if (topIsWhite) {
+              pdf.setFillColor(255, 255, 255);
+              pdf.rect(0, 0, pdfWidth, marginY, "F");
+            } else {
+              const topRowCanvas = new OffscreenCanvas(canvasWidth, 1);
+              const topRowCtx = topRowCanvas.getContext("2d");
+              if (topRowCtx) {
+                topRowCtx.drawImage(
+                  bitmap,
+                  0,
+                  currentY,
+                  canvasWidth,
+                  1,
+                  0,
+                  0,
+                  canvasWidth,
+                  1,
+                );
+                const topRowBlob = await topRowCanvas.convertToBlob({
+                  type: "image/png",
+                });
+                const topRowDataUrl = await new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(topRowBlob);
+                });
+                pdf.addImage(
+                  topRowDataUrl,
+                  "PNG",
+                  0,
+                  0,
+                  pdfWidth,
+                  marginY,
+                  "",
+                  "FAST",
+                );
+              }
             }
           }
 
-          // 填充底部 Margin
-          if (safeY < canvasHeight || marginY > 0) {
-            const bottomRowCanvas = new OffscreenCanvas(canvasWidth, 1);
-            const bottomRowCtx = bottomRowCanvas.getContext("2d");
-            if (bottomRowCtx) {
-              bottomRowCtx.drawImage(
-                bitmap,
+          // 填充底部 Margin（每一页都做）
+          const remainingHeight = pdfHeight - (marginY + pdfSliceHeight);
+          if (remainingHeight > 0) {
+            if (bottomIsWhite) {
+              pdf.setFillColor(255, 255, 255);
+              pdf.rect(
                 0,
-                safeY - 1,
-                canvasWidth,
-                1,
-                0,
-                0,
-                canvasWidth,
-                1,
+                marginY + pdfSliceHeight,
+                pdfWidth,
+                remainingHeight,
+                "F",
               );
-              const bottomRowBlob = await bottomRowCanvas.convertToBlob({
-                type: "image/png",
-              });
-              const bottomRowDataUrl = await new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.readAsDataURL(bottomRowBlob);
-              });
-              const remainingHeight = pdfHeight - (marginY + pdfSliceHeight);
-              if (remainingHeight > 0) {
-                // 将 1px 高的图像拉伸填充整个底部 margin
+            } else {
+              const bottomRowCanvas = new OffscreenCanvas(canvasWidth, 1);
+              const bottomRowCtx = bottomRowCanvas.getContext("2d");
+              if (bottomRowCtx) {
+                bottomRowCtx.drawImage(
+                  bitmap,
+                  0,
+                  safeY - 1,
+                  canvasWidth,
+                  1,
+                  0,
+                  0,
+                  canvasWidth,
+                  1,
+                );
+                const bottomRowBlob = await bottomRowCanvas.convertToBlob({
+                  type: "image/png",
+                });
+                const bottomRowDataUrl = await new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(bottomRowBlob);
+                });
                 pdf.addImage(
                   bottomRowDataUrl,
                   "PNG",
@@ -287,6 +407,8 @@ self.onmessage = async (e) => {
                   marginY + pdfSliceHeight,
                   pdfWidth,
                   remainingHeight,
+                  "",
+                  "FAST",
                 );
               }
             }
@@ -300,6 +422,8 @@ self.onmessage = async (e) => {
             marginY,
             pdfWidth,
             pdfSliceHeight,
+            "",
+            "FAST",
           );
         }
 

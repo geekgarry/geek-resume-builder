@@ -15,6 +15,7 @@ import { ConfirmDialog } from "./components/ConfirmDialog";
 import { UserCenter } from "./components/UserCenter";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { PPTMaker } from "./components/PPTMaker";
+import { ESignModule } from "./components/ESignModule";
 import {
   Download,
   LogIn,
@@ -36,7 +37,8 @@ import {
   ListChevronsDownUpIcon,
   ListChevronsUpDownIcon,
   CodeXml,
-  FileCode
+  FileCode,
+  Signature,
 } from "lucide-react";
 
 import * as htmlToImage from "html-to-image";
@@ -60,9 +62,9 @@ export default function App() {
   // 增加以下状态：isDrawerOpen 用于控制侧边栏抽屉的显示，isTemplateModalOpen 用于控制简历模板选择弹框的显示，activePage 用于区分当前是简历编辑页还是分析页，以便在页面切换时进行相应的逻辑处理（例如提示用户正在运行的 AI 任务）。这些状态将帮助我们更好地管理 UI 的交互和用户体验。
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [activePage, setActivePage] = useState<"builder" | "analysis" | "ppt">(
-    "builder",
-  );
+  const [activePage, setActivePage] = useState<
+    "builder" | "analysis" | "ppt" | "esign"
+  >("builder");
 
   // 在 App 组件内部增加下载弹框状态：
   const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
@@ -79,7 +81,7 @@ export default function App() {
   const [backgroundTasks, setBackgroundTasks] = useState<BackgroundTask[]>([]);
   const [taskPanelOpen, setTaskPanelOpen] = useState(false);
   const [leaveConfirm, setLeaveConfirm] = useState<{
-    target: 'builder' | 'analysis';
+    target: "builder" | "analysis" | "ppt" | "esign";
     active: boolean;
   } | null>(null);
   const workerRef = useRef<Worker | null>(null);
@@ -178,8 +180,8 @@ export default function App() {
 
   // 页面切换时，如果当前有正在运行的 AI 任务，弹出确认对话框，提示用户离开后任务将继续在后台运行，并询问是否确认离开当前页面。
   // 如果用户确认离开，则切换页面并保持任务面板打开；如果用户取消，则留在当前页面继续等待任务完成。
-  const switchPage = (page: 'builder' | 'analysis') => {
-    if (activePage === 'analysis' && page !== 'analysis' && runningTasksCount > 0) {
+  const switchPage = (page: "builder" | "analysis" | "ppt" | "esign") => {
+    if (activePage === "analysis" && page !== "analysis" && runningTasksCount > 0) {
       setLeaveConfirm({ target: page, active: true });
       return;
     }
@@ -888,6 +890,12 @@ export default function App() {
             >
               AI PPT 生成
             </button>
+            <button
+              onClick={() => switchPage("esign")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activePage === "esign" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}
+            >
+              电子签名
+            </button>
           </div>
         </div>
         <div className="flex flex-auto justify-end items-center gap-2 md:gap-4 overflow-x-auto">
@@ -1019,6 +1027,18 @@ export default function App() {
             >
               <span className="flex items-center gap-3">
                 <FileText size={18} /> AI PPT 生成
+              </span>
+              <ChevronRight size={16} className="opacity-50" />
+            </button>
+            <button
+              onClick={() => {
+                switchPage("esign");
+                setIsDrawerOpen(false);
+              }}
+              className={`w-full flex items-center justify-between px-6 py-3 text-left ${activePage === "esign" ? "bg-blue-50 text-blue-600 font-medium border-r-4 border-blue-600" : "text-gray-700 hover:bg-gray-50"}`}
+            >
+              <span className="flex items-center gap-3">
+                <Signature size={18} /> 电子签名
               </span>
               <ChevronRight size={16} className="opacity-50" />
             </button>
@@ -1177,6 +1197,8 @@ export default function App() {
           />
         ) : activePage === "ppt" ? (
           <PPTMaker resumeData={resumeData} />
+        ) : activePage === "esign" ? (
+          <ESignModule />
         ) : (
           <div className="flex-1 flex flex-col lg:flex-row overflow-hidden print:overflow-visible relative">
             {/* 编辑器区域 */}
