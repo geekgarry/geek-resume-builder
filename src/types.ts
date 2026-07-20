@@ -5,6 +5,14 @@ export interface ResumeData {
     phone: string;
     summary: string;
     avatar?: string;
+    /** 年龄（可选） */
+    age?: string;
+    /** 常住地（可选） */
+    residence?: string;
+    /** 性别（可选） */
+    gender?: string;
+    /** 工作年限/经验简述（可选，如「3年」「无工作经验」） */
+    workYears?: string;
   };
   // 求职意向
   jobIntention?: {
@@ -66,7 +74,17 @@ export interface ResumeData {
 }
 
 export const defaultResumeData: ResumeData = {
-  basics: { name: '', email: '', phone: '', summary: '', avatar: '' },
+  basics: {
+    name: '',
+    email: '',
+    phone: '',
+    summary: '',
+    avatar: '',
+    age: '',
+    residence: '',
+    gender: '',
+    workYears: '',
+  },
   jobIntention: { targetJob: '', targetCity: '', expectedSalary: '' },
   education: [],
   work: [],

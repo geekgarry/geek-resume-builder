@@ -1244,6 +1244,9 @@ app.post('/api/gemini-proxy', async (req, res) => {
   }
 });
 
+// --- FILE TRANSFER ROUTES ---
+require('./routes/fileTransfer')(app, pool);
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

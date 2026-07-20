@@ -391,8 +391,24 @@ export function ResumeEditor({ data, onChange, template }: EditorProps) {
               <input title="姓名" type="text" value={data.basics.name} onChange={e => updateBasics('name', e.target.value)} className="w-full border rounded p-2 text-sm" />
             </div>
             <div>
+              <label className="block text-xs md:text-sm text-gray-600 mb-1">性别 <span className="text-gray-400 font-normal">（选填）</span></label>
+              <input title="性别" type="text" value={data.basics.gender || ''} onChange={e => updateBasics('gender', e.target.value)} className="w-full border rounded p-2 text-sm" placeholder="如：男 / 女" />
+            </div>
+            <div>
+              <label className="block text-xs md:text-sm text-gray-600 mb-1">年龄 <span className="text-gray-400 font-normal">（选填）</span></label>
+              <input title="年龄" type="text" value={data.basics.age || ''} onChange={e => updateBasics('age', e.target.value)} className="w-full border rounded p-2 text-sm" placeholder="如：29岁" />
+            </div>
+            <div>
               <label className="block text-xs md:text-sm text-gray-600 mb-1">电话</label>
               <input title="电话" type="text" value={data.basics.phone} onChange={e => updateBasics('phone', e.target.value)} className="w-full border rounded p-2 text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs md:text-sm text-gray-600 mb-1">工作经验 <span className="text-gray-400 font-normal">（选填）</span></label>
+              <input title="工作经验" type="text" value={data.basics.workYears || ''} onChange={e => updateBasics('workYears', e.target.value)} className="w-full border rounded p-2 text-sm" placeholder="如：3年 / 无工作经验" />
+            </div>
+            <div>
+              <label className="block text-xs md:text-sm text-gray-600 mb-1">常住地 <span className="text-gray-400 font-normal">（选填）</span></label>
+              <input title="常住地" type="text" value={data.basics.residence || ''} onChange={e => updateBasics('residence', e.target.value)} className="w-full border rounded p-2 text-sm" placeholder="如：江苏省苏州市" />
             </div>
             <div className="col-span-1 sm:col-span-2">
               <label className="block text-xs md:text-sm text-gray-600 mb-1">邮箱</label>
@@ -402,8 +418,8 @@ export function ResumeEditor({ data, onChange, template }: EditorProps) {
         </div>
         
         <div className="relative">
-          <label className="block text-xs md:text-sm text-gray-600 mb-1">个人总结</label>
-          <textarea title="个人总结" value={data.basics.summary} onChange={e => updateBasics('summary', e.target.value)} className="w-full border rounded p-2 h-24 text-sm" placeholder="简短介绍您的核心优势和职业目标..." />
+          <label className="block text-xs md:text-sm text-gray-600 mb-1">个人介绍</label>
+          <textarea title="个人介绍" value={data.basics.summary} onChange={e => updateBasics('summary', e.target.value)} className="w-full border rounded p-2 h-24 text-sm" placeholder="简短介绍您的核心优势和职业目标..." />
           <button 
             onClick={() => handleAiOptimize(data.basics.summary, 'summary', (val) => updateBasics('summary', val), 'summary')}
             disabled={aiLoading === 'summary'}

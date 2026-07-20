@@ -19,7 +19,7 @@ export function ResumeManagement() {
   const [editResume, setEditResume] = useState<any | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editFormData, setEditFormData] = useState<ResumeData>({
-    basics: { name: '', email: '', phone: '', summary: '', avatar: '' },
+    basics: { name: '', email: '', phone: '', summary: '', avatar: '', age: '', residence: '', gender: '', workYears: '' },
     jobIntention: { targetJob: '', targetCity: '', expectedSalary: '' },
     education: [],
     work: [],
@@ -326,13 +326,23 @@ export function ResumeManagement() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">邮箱</label>
+                  <label className="text-sm font-medium">性别（选填）</label>
                   <input
                     className="mt-1 w-full border border-gray-200 rounded px-3 py-2"
-                    value={editFormData?.basics?.email || ''}
-                    placeholder="请输入邮箱"
-                    title="邮箱"
-                    onChange={e => setEditFormData(prev => ({ ...prev, basics: { ...prev.basics, email: e.target.value } }))}
+                    value={editFormData?.basics?.gender || ''}
+                    placeholder="如：男 / 女"
+                    title="性别"
+                    onChange={e => setEditFormData(prev => ({ ...prev, basics: { ...prev.basics, gender: e.target.value } }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">年龄（选填）</label>
+                  <input
+                    className="mt-1 w-full border border-gray-200 rounded px-3 py-2"
+                    value={editFormData?.basics?.age || ''}
+                    placeholder="如：29岁"
+                    title="年龄"
+                    onChange={e => setEditFormData(prev => ({ ...prev, basics: { ...prev.basics, age: e.target.value } }))}
                   />
                 </div>
                 <div>
@@ -346,12 +356,42 @@ export function ResumeManagement() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">个人总结</label>
+                  <label className="text-sm font-medium">工作经验（选填）</label>
                   <input
                     className="mt-1 w-full border border-gray-200 rounded px-3 py-2"
+                    value={editFormData?.basics?.workYears || ''}
+                    placeholder="如：3年 / 无工作经验"
+                    title="工作经验"
+                    onChange={e => setEditFormData(prev => ({ ...prev, basics: { ...prev.basics, workYears: e.target.value } }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">常住地（选填）</label>
+                  <input
+                    className="mt-1 w-full border border-gray-200 rounded px-3 py-2"
+                    value={editFormData?.basics?.residence || ''}
+                    placeholder="如：江苏省苏州市"
+                    title="常住地"
+                    onChange={e => setEditFormData(prev => ({ ...prev, basics: { ...prev.basics, residence: e.target.value } }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">邮箱</label>
+                  <input
+                    className="mt-1 w-full border border-gray-200 rounded px-3 py-2"
+                    value={editFormData?.basics?.email || ''}
+                    placeholder="请输入邮箱"
+                    title="邮箱"
+                    onChange={e => setEditFormData(prev => ({ ...prev, basics: { ...prev.basics, email: e.target.value } }))}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium">个人介绍</label>
+                  <textarea
+                    className="mt-1 w-full border border-gray-200 rounded px-3 py-2 min-h-[80px]"
                     value={editFormData?.basics?.summary || ''}
-                    placeholder="请输入个人总结"
-                    title="个人总结"
+                    placeholder="请输入个人介绍"
+                    title="个人介绍"
                     onChange={e => setEditFormData(prev => ({ ...prev, basics: { ...prev.basics, summary: e.target.value } }))}
                   />
                 </div>

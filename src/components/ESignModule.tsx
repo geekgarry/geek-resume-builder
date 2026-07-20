@@ -7,6 +7,8 @@ import {
   Info,
   Link2,
   Loader2,
+  Move,
+  Plus,
   RotateCcw,
   Signature,
   Trash2,
@@ -14,11 +16,19 @@ import {
 } from "lucide-react";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
-// Vite 会产出 .mjs；部分 Nginx 以 octet-stream 返回导致 Worker 加载失败，改为 Blob URL
 import pdfWorkerAsset from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { SignaturePad } from "./SignaturePad";
 
+type SignatureRecord = {
+  id: string;
+  image: string;
+  name: string;
+};
+
 type SignaturePlacement = {
+  id: string;
+  signatureId: string;
+  image: string;
   pageIndex: number;
   x: number;
   y: number;
@@ -53,6 +63,8 @@ const SIGNATURE_KEYWORDS = [
 
 const DEFAULT_SIG_W = 0.18;
 const DEFAULT_SIG_H = 0.06;
+const MIN_SIG_W = 0.06;
+const MIN_SIG_H = 0.03;
 
 const IMAGE_EXT = /\.(png|jpe?g|webp|gif|bmp)$/i;
 const PDF_EXT = /\.pdf$/i;
@@ -82,6 +94,10 @@ function loadHtmlImage(src: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error("图片加载失败"));
     img.src = src;
   });
+}
+
+function uid(prefix: string) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
 async function imageBytesToPdf(
@@ -186,8 +202,30 @@ function guessNameFromUrl(url: string) {
   return url.split("/").pop()?.split("?")[0] || "online-document";
 }
 
+type DragState =
+  | {
+      type: "move" | "resize";
+      id: string;
+      startX: number;
+      startY: number;
+      origX: number;
+      origY: number;
+      origW: number;
+      origH: number;
+    }
+  | null;
+
 export function ESignModule() {
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
+  const [signatureRecords, setSignatureRecords] = useState<SignatureRecord[]>(
+    [],
+  );
+  const [activeSignatureId, setActiveSignatureId] = useState<string | null>(
+    null,
+  );
+  const activeSignatureIdRef = useRef<string | null>(null);
+  activeSignatureIdRef.current = activeSignatureId;
+  const [padKey, setPadKey] = useState(0);
 
   const [pdfBytes, setPdfBytes] = useState<ArrayBuffer | null>(null);
   const [pdfFileName, setPdfFileName] = useState("document.pdf");
@@ -202,19 +240,79 @@ export function ESignModule() {
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [placements, setPlacements] = useState<SignaturePlacement[]>([]);
+  const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(
+    null,
+  );
   const [manualMode, setManualMode] = useState(false);
   const [detectedSlots, setDetectedSlots] = useState<DetectedSlot[]>([]);
   const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragRef = useRef<DragState>(null);
 
   const hasDocument = !!pdfBytes && !!pageImageUrl;
+  const activeRecord =
+    signatureRecords.find((r) => r.id === activeSignatureId) || null;
+
+  const upsertCurrentSignature = useCallback((url: string | null) => {
+    setSignatureImage(url);
+    if (!url) return;
+    setSignatureRecords((prev) => {
+      const aid = activeSignatureIdRef.current;
+      if (aid && prev.some((r) => r.id === aid)) {
+        return prev.map((r) =>
+          r.id === aid ? { ...r, image: url } : r,
+        );
+      }
+      const id = uid("sig");
+      activeSignatureIdRef.current = id;
+      setActiveSignatureId(id);
+      return [...prev, { id, image: url, name: `签名${prev.length + 1}` }];
+    });
+  }, []);
 
   const downloadSignatureImage = () => {
-    if (!signatureImage) return;
+    const img = signatureImage || activeRecord?.image;
+    if (!img) return;
     const link = document.createElement("a");
     link.download = `signature_${Date.now()}.png`;
-    link.href = signatureImage;
+    link.href = img;
     link.click();
+  };
+
+  const startNextSignature = () => {
+    setStatusMsg(
+      "已保存当前签名。请书写下一个名字，完成后手动选点放置。",
+    );
+    activeSignatureIdRef.current = null;
+    setActiveSignatureId(null);
+    setSignatureImage(null);
+    setPadKey((k) => k + 1);
+  };
+
+  const selectSignatureRecord = (id: string) => {
+    const rec = signatureRecords.find((r) => r.id === id);
+    if (!rec) return;
+    activeSignatureIdRef.current = id;
+    setActiveSignatureId(id);
+    setSignatureImage(rec.image);
+    setStatusMsg(`已选用「${rec.name}」，可手动选点放置到文档。`);
+  };
+
+  const removeSignatureRecord = (id: string) => {
+    setSignatureRecords((prev) => prev.filter((r) => r.id !== id));
+    setPlacements((prev) => prev.filter((p) => p.signatureId !== id));
+    if (activeSignatureId === id) {
+      activeSignatureIdRef.current = null;
+      setActiveSignatureId(null);
+      setSignatureImage(null);
+      setPadKey((k) => k + 1);
+    }
+  };
+
+  const renameSignatureRecord = (id: string, name: string) => {
+    setSignatureRecords((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, name: name || r.name } : r)),
+    );
   };
 
   const renderPage = useCallback(
@@ -249,6 +347,7 @@ export function ESignModule() {
       setPageCount(doc.numPages);
       setCurrentPage(1);
       setPlacements([]);
+      setSelectedPlacementId(null);
       setManualMode(false);
 
       await renderPage(doc, 1);
@@ -258,26 +357,17 @@ export function ESignModule() {
       setDetectedSlots(slots);
 
       if (slots.length > 0) {
-        const autoPlacements: SignaturePlacement[] = slots.map((s) => ({
-          pageIndex: s.pageIndex,
-          x: s.x,
-          y: s.y,
-          width: s.width,
-          height: s.height,
-          source: "auto" as const,
-        }));
-        setPlacements(autoPlacements);
         setCurrentPage(slots[0].pageIndex + 1);
         await renderPage(doc, slots[0].pageIndex + 1);
         setStatusMsg(
-          `已识别到 ${slots.length} 处签名位置（关键词：${slots.map((s) => s.label).join("、")}），可调整或继续添加。`,
+          `已识别到 ${slots.length} 处签名位置。请先完成签名，再点「应用识别结果」或手动选点。`,
         );
         setManualMode(false);
       } else {
         setStatusMsg(
-          "未识别到签名位置，请点击文档预览区域手动选择签名放置位置。",
+          "未识别到签名位置，请完成签名后开启手动选点。",
         );
-        setManualMode(true);
+        setManualMode(false);
       }
     } catch (err: any) {
       console.error(err);
@@ -359,9 +449,11 @@ export function ESignModule() {
       } else if (IMAGE_EXT.test(url)) {
         await loadImageAsPdf(bytes, name, contentType);
       } else {
-        // 尝试按 PDF 解析，失败再按图片
         try {
-          await loadPdfFromBytes(bytes, PDF_EXT.test(name) ? name : `${name}.pdf`);
+          await loadPdfFromBytes(
+            bytes,
+            PDF_EXT.test(name) ? name : `${name}.pdf`,
+          );
         } catch {
           await loadImageAsPdf(bytes, name, contentType);
         }
@@ -381,9 +473,15 @@ export function ESignModule() {
     renderPage(pdfDoc, currentPage);
   }, [currentPage, pdfDoc, renderPage]);
 
+  const getActiveImage = () =>
+    signatureImage || activeRecord?.image || null;
+
   const handlePreviewClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!manualMode || !previewRef.current || !signatureImage) {
-      if (!signatureImage) alert("请先完成电子签名");
+    if (!manualMode || !previewRef.current) return;
+    if (dragRef.current) return;
+    const img = getActiveImage();
+    if (!img || !activeSignatureId) {
+      alert("请先完成电子签名");
       return;
     }
     const rect = previewRef.current.getBoundingClientRect();
@@ -391,6 +489,9 @@ export function ESignModule() {
     const relY = (e.clientY - rect.top) / rect.height;
 
     const placement: SignaturePlacement = {
+      id: uid("place"),
+      signatureId: activeSignatureId,
+      image: img,
       pageIndex: currentPage - 1,
       x: Math.max(0, Math.min(relX - DEFAULT_SIG_W / 2, 1 - DEFAULT_SIG_W)),
       y: Math.max(0, Math.min(relY - DEFAULT_SIG_H / 2, 1 - DEFAULT_SIG_H)),
@@ -399,17 +500,26 @@ export function ESignModule() {
       source: "manual",
     };
     setPlacements((prev) => [...prev, placement]);
-    setStatusMsg("已添加签名位置，可继续点击添加更多，或下载已签署文档。");
+    setSelectedPlacementId(placement.id);
+    setStatusMsg(
+      "已放置签名。可拖动/缩放调整；也可点「签下一个」继续签不同名字。",
+    );
   };
 
-  const removePlacement = (index: number) => {
-    setPlacements((prev) => prev.filter((_, i) => i !== index));
+  const cancelManualMode = () => {
+    setManualMode(false);
+    setStatusMsg("已取消手动选点。");
+  };
+
+  const removePlacement = (id: string) => {
+    setPlacements((prev) => prev.filter((p) => p.id !== id));
+    if (selectedPlacementId === id) setSelectedPlacementId(null);
   };
 
   const clearPlacements = () => {
     setPlacements([]);
-    setManualMode(true);
-    setStatusMsg("已清空签名位置，请点击文档手动选择放置位置。");
+    setSelectedPlacementId(null);
+    setStatusMsg("已清空签名位置。");
   };
 
   const clearDocument = () => {
@@ -421,6 +531,7 @@ export function ESignModule() {
     setPageImageUrl(null);
     setPageSize({ width: 0, height: 0 });
     setPlacements([]);
+    setSelectedPlacementId(null);
     setDetectedSlots([]);
     setManualMode(false);
     setUrlInput("");
@@ -429,28 +540,106 @@ export function ESignModule() {
   };
 
   const applyAutoSlots = () => {
+    const img = getActiveImage();
+    const sigId = activeSignatureId;
+    if (!img || !sigId) {
+      alert("请先完成电子签名，再应用识别结果");
+      return;
+    }
     if (detectedSlots.length === 0) {
       setManualMode(true);
       setStatusMsg("没有可应用的自动识别结果，请手动选择位置。");
       return;
     }
-    setPlacements(
-      detectedSlots.map((s) => ({
-        pageIndex: s.pageIndex,
-        x: s.x,
-        y: s.y,
-        width: s.width,
-        height: s.height,
-        source: "auto" as const,
-      })),
-    );
+    const next: SignaturePlacement[] = detectedSlots.map((s) => ({
+      id: uid("place"),
+      signatureId: sigId,
+      image: img,
+      pageIndex: s.pageIndex,
+      x: s.x,
+      y: s.y,
+      width: s.width,
+      height: s.height,
+      source: "auto" as const,
+    }));
+    setPlacements((prev) => [...prev, ...next]);
     setManualMode(false);
-    setStatusMsg(`已应用 ${detectedSlots.length} 处自动识别的签名位置。`);
+    setStatusMsg(
+      `已为「${activeRecord?.name || "当前签名"}」应用 ${next.length} 处识别位置，可拖动调整。`,
+    );
   };
 
+  const onPlacementPointerDown = (
+    e: React.PointerEvent,
+    p: SignaturePlacement,
+    type: "move" | "resize",
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setSelectedPlacementId(p.id);
+    setManualMode(false);
+    dragRef.current = {
+      type,
+      id: p.id,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: p.x,
+      origY: p.y,
+      origW: p.width,
+      origH: p.height,
+    };
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const drag = dragRef.current;
+      const box = previewRef.current;
+      if (!drag || !box) return;
+      const rect = box.getBoundingClientRect();
+      const dx = (e.clientX - drag.startX) / rect.width;
+      const dy = (e.clientY - drag.startY) / rect.height;
+
+      setPlacements((prev) =>
+        prev.map((p) => {
+          if (p.id !== drag.id) return p;
+          if (drag.type === "move") {
+            const x = Math.max(
+              0,
+              Math.min(drag.origX + dx, 1 - p.width),
+            );
+            const y = Math.max(
+              0,
+              Math.min(drag.origY + dy, 1 - p.height),
+            );
+            return { ...p, x, y };
+          }
+          const width = Math.max(
+            MIN_SIG_W,
+            Math.min(drag.origW + dx, 1 - drag.origX),
+          );
+          const height = Math.max(
+            MIN_SIG_H,
+            Math.min(drag.origH + dy, 1 - drag.origY),
+          );
+          return { ...p, width, height };
+        }),
+      );
+    };
+    const onUp = () => {
+      dragRef.current = null;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, []);
+
   const downloadSignedPdf = async () => {
-    if (!pdfBytes || !signatureImage) {
-      alert("请先完成签名并导入文档");
+    if (!pdfBytes) {
+      alert("请先导入文档");
       return;
     }
     if (placements.length === 0) {
@@ -461,13 +650,18 @@ export function ESignModule() {
     setExporting(true);
     try {
       const pdfDocLib = await PDFDocument.load(pdfBytes.slice(0));
-      const pngBytes = await fetch(signatureImage).then((r) => r.arrayBuffer());
-      const pngImage = await pdfDocLib.embedPng(pngBytes);
       const pages = pdfDocLib.getPages();
+      const imageCache = new Map<string, Awaited<ReturnType<typeof pdfDocLib.embedPng>>>();
 
       for (const p of placements) {
         const page = pages[p.pageIndex];
         if (!page) continue;
+        let pngImage = imageCache.get(p.image);
+        if (!pngImage) {
+          const pngBytes = await fetch(p.image).then((r) => r.arrayBuffer());
+          pngImage = await pdfDocLib.embedPng(pngBytes);
+          imageCache.set(p.image, pngImage);
+        }
         const { width, height } = page.getSize();
         const sigW = p.width * width;
         const sigH = p.height * height;
@@ -493,9 +687,9 @@ export function ESignModule() {
     }
   };
 
-  const currentPagePlacements = placements
-    .map((p, index) => ({ ...p, index }))
-    .filter((p) => p.pageIndex === currentPage - 1);
+  const currentPagePlacements = placements.filter(
+    (p) => p.pageIndex === currentPage - 1,
+  );
 
   return (
     <div
@@ -509,7 +703,7 @@ export function ESignModule() {
             <div>
               <h1 className="text-lg font-bold tracking-wide">在线电子签名</h1>
               <p className="text-xs text-slate-300 mt-0.5">
-                手写签名 · 导入 PDF/图片 · 识别/手动定位 · 下载签署件
+                多签名连续签署 · 可拖动缩放位置 · 导入 PDF/图片
               </p>
             </div>
           </div>
@@ -517,17 +711,29 @@ export function ESignModule() {
 
         <div className="flex-1 flex flex-col lg:flex-row min-h-0">
           <SignaturePad
-            onSignatureChange={setSignatureImage}
+            key={padKey}
+            onSignatureChange={upsertCurrentSignature}
             className="flex-1 p-4 md:p-5 border-b lg:border-b-0 lg:border-r border-gray-200"
           />
 
           <aside className="w-full lg:w-[380px] bg-white p-4 md:p-5 flex flex-col gap-4 overflow-y-auto overscroll-contain">
             <div className="bg-slate-50 p-3 rounded-xl border border-gray-200">
-              <h3 className="text-sm font-bold text-gray-700 mb-2">签名预览</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-gray-700">当前签名</h3>
+                <button
+                  type="button"
+                  onClick={startNextSignature}
+                  className="text-xs px-2 py-1 rounded-lg bg-sky-600 text-white flex items-center gap-1"
+                  title="保存当前签名并书写下一个"
+                >
+                  <Plus size={12} />
+                  签下一个
+                </button>
+              </div>
               <div className="aspect-[2/1] bg-white border border-gray-300 rounded flex items-center justify-center overflow-hidden">
-                {signatureImage ? (
+                {getActiveImage() ? (
                   <img
-                    src={signatureImage}
+                    src={getActiveImage()!}
                     alt="签名预览"
                     className="max-w-full max-h-full object-contain"
                   />
@@ -538,12 +744,64 @@ export function ESignModule() {
               <button
                 type="button"
                 onClick={downloadSignatureImage}
-                disabled={!signatureImage}
+                disabled={!getActiveImage()}
                 className="mt-2 w-full py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-40"
               >
-                仅下载签名图片
+                仅下载当前签名图片
               </button>
             </div>
+
+            {/* 签名记录（刷新前保留） */}
+            {signatureRecords.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-gray-700">
+                    签名记录
+                  </h3>
+                  <span className="text-xs text-gray-500">
+                    {signatureRecords.length} 个（刷新后清空）
+                  </span>
+                </div>
+                <ul className="space-y-2 max-h-40 overflow-y-auto">
+                  {signatureRecords.map((r) => (
+                    <li
+                      key={r.id}
+                      className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer ${
+                        activeSignatureId === r.id
+                          ? "border-sky-400 bg-sky-50"
+                          : "border-gray-200 bg-white"
+                      }`}
+                      onClick={() => selectSignatureRecord(r.id)}
+                    >
+                      <img
+                        src={r.image}
+                        alt=""
+                        className="w-14 h-8 object-contain bg-white border rounded"
+                      />
+                      <input
+                        value={r.name}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) =>
+                          renameSignatureRecord(r.id, e.target.value)
+                        }
+                        className="flex-1 text-xs border border-gray-200 rounded px-1.5 py-1 min-w-0"
+                      />
+                      <button
+                        type="button"
+                        className="text-red-500"
+                        title="删除此签名"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSignatureRecord(r.id);
+                        }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             <div className="space-y-2">
               <h3 className="text-sm font-bold text-gray-700">导入待签文档</h3>
@@ -616,7 +874,16 @@ export function ESignModule() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={() => setManualMode(true)}
+                    onClick={() => {
+                      if (!getActiveImage()) {
+                        alert("请先完成电子签名");
+                        return;
+                      }
+                      setManualMode(true);
+                      setStatusMsg(
+                        "手动选点已开启：点击预览放置；可点「取消选点」退出。",
+                      );
+                    }}
                     className={`px-2.5 py-1.5 text-xs rounded-lg border ${
                       manualMode
                         ? "bg-amber-50 border-amber-300 text-amber-800"
@@ -625,6 +892,15 @@ export function ESignModule() {
                   >
                     手动选点
                   </button>
+                  {manualMode && (
+                    <button
+                      type="button"
+                      onClick={cancelManualMode}
+                      className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 text-gray-700 bg-white"
+                    >
+                      取消选点
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={applyAutoSlots}
@@ -644,30 +920,46 @@ export function ESignModule() {
                 </div>
                 {manualMode && (
                   <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-2">
-                    手动模式已开启：在下方预览图上点击即可添加签名位置。
+                    手动模式：点击预览添加位置。已放置的签名可拖动移动，右下角可缩放。
                   </p>
                 )}
                 {placements.length > 0 && (
-                  <ul className="max-h-28 overflow-y-auto space-y-1 text-xs text-gray-600">
-                    {placements.map((p, i) => (
-                      <li
-                        key={i}
-                        className="flex items-center justify-between bg-gray-50 rounded px-2 py-1"
-                      >
-                        <span>
-                          第 {p.pageIndex + 1} 页 ·{" "}
-                          {p.source === "auto" ? "自动" : "手动"}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removePlacement(i)}
-                          className="text-red-500 hover:text-red-700"
-                          title="删除"
+                  <ul className="max-h-36 overflow-y-auto space-y-1 text-xs text-gray-600">
+                    {placements.map((p) => {
+                      const rec = signatureRecords.find(
+                        (r) => r.id === p.signatureId,
+                      );
+                      return (
+                        <li
+                          key={p.id}
+                          className={`flex items-center justify-between bg-gray-50 rounded px-2 py-1 cursor-pointer ${
+                            selectedPlacementId === p.id
+                              ? "ring-1 ring-emerald-400"
+                              : ""
+                          }`}
+                          onClick={() => {
+                            setSelectedPlacementId(p.id);
+                            setCurrentPage(p.pageIndex + 1);
+                          }}
                         >
-                          <X size={14} />
-                        </button>
-                      </li>
-                    ))}
+                          <span className="truncate">
+                            第 {p.pageIndex + 1} 页 · {rec?.name || "签名"} ·{" "}
+                            {p.source === "auto" ? "自动" : "手动"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removePlacement(p.id);
+                            }}
+                            className="text-red-500 hover:text-red-700 shrink-0"
+                            title="删除"
+                          >
+                            <X size={14} />
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
@@ -677,12 +969,7 @@ export function ESignModule() {
               <button
                 type="button"
                 onClick={downloadSignedPdf}
-                disabled={
-                  !signatureImage ||
-                  !pdfBytes ||
-                  placements.length === 0 ||
-                  exporting
-                }
+                disabled={!pdfBytes || placements.length === 0 || exporting}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg font-semibold flex items-center justify-center gap-2"
               >
                 {exporting ? (
@@ -738,7 +1025,7 @@ export function ESignModule() {
             <div
               ref={previewRef}
               onClick={handlePreviewClick}
-              className={`relative mx-auto max-w-3xl bg-white shadow-md ${
+              className={`relative mx-auto max-w-3xl bg-white shadow-md select-none ${
                 manualMode ? "cursor-crosshair" : "cursor-default"
               }`}
               style={{
@@ -754,26 +1041,52 @@ export function ESignModule() {
                 className="w-full h-full object-contain pointer-events-none select-none"
                 draggable={false}
               />
-              {signatureImage &&
-                currentPagePlacements.map((p) => (
+              {currentPagePlacements.map((p) => {
+                const selected = selectedPlacementId === p.id;
+                return (
                   <div
-                    key={p.index}
-                    className="absolute border-2 border-emerald-500 bg-emerald-500/10 pointer-events-none"
+                    key={p.id}
+                    className={`absolute border-2 ${
+                      selected
+                        ? "border-sky-500 ring-2 ring-sky-300"
+                        : "border-emerald-500"
+                    } bg-emerald-500/10`}
                     style={{
                       left: `${p.x * 100}%`,
                       top: `${p.y * 100}%`,
                       width: `${p.width * 100}%`,
                       height: `${p.height * 100}%`,
+                      touchAction: "none",
                     }}
+                    onPointerDown={(e) => onPlacementPointerDown(e, p, "move")}
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <img
-                      src={signatureImage}
+                      src={p.image}
                       alt=""
-                      className="w-full h-full object-contain opacity-90"
+                      className="w-full h-full object-contain opacity-90 pointer-events-none"
+                      draggable={false}
                     />
+                    {selected && (
+                      <>
+                        <span className="absolute -top-5 left-0 text-[10px] bg-sky-600 text-white px-1 rounded flex items-center gap-0.5">
+                          <Move size={10} /> 拖动
+                        </span>
+                        <span
+                          className="absolute -right-1.5 -bottom-1.5 w-3.5 h-3.5 bg-sky-500 border-2 border-white rounded-sm cursor-se-resize"
+                          onPointerDown={(e) =>
+                            onPlacementPointerDown(e, p, "resize")
+                          }
+                        />
+                      </>
+                    )}
                   </div>
-                ))}
+                );
+              })}
             </div>
+            <p className="text-center text-xs text-gray-500 mt-2">
+              点击签名可选中；拖动移动位置，右下角拖动调整大小
+            </p>
           </div>
         )}
       </div>

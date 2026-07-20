@@ -39,8 +39,13 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
                 <div>
                   <h1 className="text-xl md:text-2xl font-bold mb-2" style={{ color: themeColor }}>{data.basics.name || '姓名'}</h1>
                   <div className="flex flex-col gap-1 md:gap-2 text-xs md:text-sm" style={{ opacity: 0.8 }}>
+                    {(data.basics.gender || data.basics.age) && (
+                      <span>{[data.basics.gender, data.basics.age].filter(Boolean).join(' · ')}</span>
+                    )}
                     {data.basics.phone && <span>{data.basics.phone}</span>}
                     {data.basics.email && <span className="break-all">{data.basics.email}</span>}
+                    {data.basics.residence && <span>{data.basics.residence}</span>}
+                    {data.basics.workYears && <span>{data.basics.workYears}</span>}
                   </div>
                 </div>
               </div>
@@ -53,8 +58,13 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
               <div className={isTwoColumn ? '' : 'text-left flex-1'}>
                 <h1 className={`${isTwoColumn ? 'text-2xl md:text-3xl' : 'text-3xl md:text-4xl'} font-bold mb-2`} style={{ color: themeColor }}>{data.basics.name || '姓名'}</h1>
                 <div className={`flex ${isTwoColumn ? 'flex-col items-center' : 'flex-wrap justify-start'} gap-2 md:gap-4 text-xs md:text-sm`} style={{ opacity: 0.8 }}>
+                  {(data.basics.gender || data.basics.age) && (
+                    <span>{[data.basics.gender, data.basics.age].filter(Boolean).join(' · ')}</span>
+                  )}
                   {data.basics.phone && <span>{data.basics.phone}</span>}
                   {data.basics.email && <span className="break-all">{data.basics.email}</span>}
+                  {data.basics.residence && <span>{data.basics.residence}</span>}
+                  {data.basics.workYears && <span>{data.basics.workYears}</span>}
                 </div>
               </div>
             </div>
@@ -247,8 +257,12 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
         <div className="flex-1">
           <h1 className="text-3xl md:text-4xl font-bold mb-3 tracking-wider">{data.basics.name || '姓名'}</h1>
           <div className="text-xs md:text-sm text-gray-600 flex flex-wrap justify-start gap-x-4 gap-y-1">
+            {data.basics.gender && <span>{data.basics.gender}</span>}
+            {data.basics.age && <span>{data.basics.age}</span>}
             {data.basics.phone && <span>📞 {data.basics.phone}</span>}
             {data.basics.email && <span className="break-all">✉️ {data.basics.email}</span>}
+            {data.basics.residence && <span>📍 {data.basics.residence}</span>}
+            {data.basics.workYears && <span>经验：{data.basics.workYears}</span>}
           </div>
         </div>
         {data.basics.avatar && (
@@ -453,6 +467,14 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
           <h2 className="text-base md:text-lg font-bold border-b border-slate-600 mb-3 pb-1 uppercase tracking-wider text-white">联系方式</h2>
           {data.basics.phone && <div className="flex items-center gap-2"><span>📞</span> {data.basics.phone}</div>}
           {data.basics.email && <div className="flex items-center gap-2 break-all"><span>✉️</span> {data.basics.email}</div>}
+          {(data.basics.gender || data.basics.age) && (
+            <div className="flex items-center gap-2">
+              <span>👤</span>
+              {[data.basics.gender, data.basics.age].filter(Boolean).join(' · ')}
+            </div>
+          )}
+          {data.basics.residence && <div className="flex items-center gap-2"><span>📍</span> {data.basics.residence}</div>}
+          {data.basics.workYears && <div className="flex items-center gap-2"><span>💼</span> {data.basics.workYears}</div>}
         </div>
 
         {data.education.length > 0 && (
@@ -616,34 +638,68 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
   );
 
   // 模板 3: 传统表格样式
-  const renderTemplate3 = () => (
+  const renderTemplate3 = () => {
+    const highestDegree =
+      data.education.filter((e) => !e.isHidden)[0]?.degree || '';
+
+    return (
     <div className="table-resume-tpl bg-white text-black font-serif w-full max-w-[800px] min-h-[1131px] mx-auto p-8 shadow-lg print:shadow-none print:m-0">
       <h1 className="text-3xl font-bold text-center mb-6 tracking-widest">个人简历</h1>
-      <table className="w-full border-collapse border-2 border-black text-sm mb-6">
-        <tbody>
-          <tr>
-            <td className="border border-black p-3 font-bold bg-gray-100 w-24 text-center">姓名</td>
-            <td className="border border-black p-3">{data.basics.name}</td>
-            <td className="border border-black p-3 font-bold bg-gray-100 w-24 text-center">电话</td>
-            <td className="border border-black p-3">{data.basics.phone}</td>
-            <td className="border border-black p-2 w-32 text-center" rowSpan={3}>
-              {data.basics.avatar ? (
-                <img src={data.basics.avatar} alt="Avatar" className="w-24 h-32 object-cover mx-auto" />
-              ) : (
-                <div className="w-24 h-32 bg-gray-100 mx-auto flex items-center justify-center text-gray-400">照片</div>
-              )}
-            </td>
-          </tr>
-          <tr>
-            <td className="border border-black p-3 font-bold bg-gray-100 text-center">邮箱</td>
-            <td className="border border-black p-3" colSpan={3}>{data.basics.email}</td>
-          </tr>
-          <tr>
-            <td className="border border-black p-3 font-bold bg-gray-100 text-center">个人介绍</td>
-            <td className="border border-black p-3" colSpan={3}>{data.basics.summary}</td>
-          </tr>
-        </tbody>
-      </table>
+
+      {/* 基础信息：表格网格 + 右侧照片；个人介绍单独成块在下方 */}
+      <div className="mb-6">
+        <h2 className="text-lg font-bold bg-gray-200 border-2 border-black border-b-0 p-2 text-center tracking-widest">基础信息</h2>
+        <table className="w-full border-collapse border-2 border-black text-sm">
+          <tbody>
+            <tr>
+              <td className="border border-black p-3 font-bold bg-gray-100 w-[18%] text-center">姓名</td>
+              <td className="border border-black p-3 w-[22%]">{data.basics.name}</td>
+              <td className="border border-black p-3 font-bold bg-gray-100 w-[18%] text-center">性别</td>
+              <td className="border border-black p-3 w-[22%]">{data.basics.gender || ''}</td>
+              <td className="border border-black p-2 w-[20%] text-center align-middle" rowSpan={5}>
+                {data.basics.avatar ? (
+                  <img src={data.basics.avatar} alt="Avatar" className="w-24 h-32 object-cover mx-auto" />
+                ) : (
+                  <div className="w-24 h-32 bg-gray-100 mx-auto flex items-center justify-center text-gray-400">照片</div>
+                )}
+              </td>
+            </tr>
+            <tr>
+              <td className="border border-black p-3 font-bold bg-gray-100 text-center">年龄</td>
+              <td className="border border-black p-3">{data.basics.age || ''}</td>
+              <td className="border border-black p-3 font-bold bg-gray-100 text-center">电话</td>
+              <td className="border border-black p-3">{data.basics.phone}</td>
+            </tr>
+            <tr>
+              <td className="border border-black p-3 font-bold bg-gray-100 text-center">工作经验</td>
+              <td className="border border-black p-3">{data.basics.workYears || ''}</td>
+              <td className="border border-black p-3 font-bold bg-gray-100 text-center">最高学历</td>
+              <td className="border border-black p-3">{highestDegree}</td>
+            </tr>
+            <tr>
+              <td className="border border-black p-3 font-bold bg-gray-100 text-center">常住地</td>
+              <td className="border border-black p-3" colSpan={3}>{data.basics.residence || ''}</td>
+            </tr>
+            <tr>
+              <td className="border border-black p-3 font-bold bg-gray-100 text-center">邮箱</td>
+              <td className="border border-black p-3 break-all" colSpan={3}>{data.basics.email}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {data.basics.summary && (
+        <div className="mb-6">
+          <h2 className="text-lg font-bold bg-gray-200 border-2 border-black border-b-0 p-2 text-center tracking-widest">个人介绍</h2>
+          <table className="w-full border-collapse border-2 border-black text-sm">
+            <tbody>
+              <tr>
+                <td className="border border-black p-3 whitespace-pre-wrap leading-relaxed">{data.basics.summary}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* 表格：教育经历 */}
       {data.education.length > 0 && (
@@ -814,7 +870,8 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   // 模板 4: PPT 风格
   const renderTemplate4 = () => (
@@ -981,6 +1038,732 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
     </div>
   );
 
+  const skillTagList = (data.skills || '')
+    .split(/[,，、;；\n|/]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const eduDegree = () =>
+    data.education.find((e) => !e.isHidden)?.degree || '';
+
+  // 模板 6: 商务蓝调 — 深蓝头图 + 圆角色块标题（参考招聘 App 蓝头样式）
+  const renderTemplate6 = () => (
+    <div className="bg-white text-gray-800 font-sans w-full max-w-[800px] min-h-[800px] md:min-h-[1131px] mx-auto shadow-lg print:shadow-none print:m-0 break-words overflow-hidden">
+      <header className="bg-[#1e3a5f] text-white px-6 md:px-10 py-7 flex items-center gap-5">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-wide mb-2">{data.basics.name || '姓名'}</h1>
+          <div className="text-xs md:text-sm text-blue-100/90 mb-3 flex flex-wrap gap-x-2">
+            {data.basics.gender && <span>{data.basics.gender}</span>}
+            {data.basics.age && <span>{data.basics.age}</span>}
+            {eduDegree() && <span>{eduDegree()}</span>}
+            {data.basics.workYears && <span>{data.basics.workYears}</span>}
+            {data.jobIntention?.targetCity && (
+              <>
+                <span>|</span>
+                <span>{data.jobIntention.targetCity}</span>
+              </>
+            )}
+          </div>
+          <div className="space-y-1 text-xs md:text-sm text-blue-50">
+            {data.basics.phone && <div>☎ {data.basics.phone}</div>}
+            {data.basics.email && <div className="break-all">✉ {data.basics.email}</div>}
+            {data.basics.residence && <div>📍 {data.basics.residence}</div>}
+            {!data.basics.residence && data.jobIntention?.targetCity && <div>📍 {data.jobIntention.targetCity}</div>}
+          </div>
+        </div>
+        {data.basics.avatar ? (
+          <img src={data.basics.avatar} alt="Avatar" className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-2 border-white/40 shrink-0" />
+        ) : (
+          <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white/15 flex items-center justify-center text-2xl font-bold shrink-0">
+            {(data.basics.name || '名')[0]}
+          </div>
+        )}
+      </header>
+
+      <div className="px-6 md:px-10 py-6 space-y-5">
+        {data.jobIntention && (data.jobIntention.targetJob || data.jobIntention.targetCity || data.jobIntention.expectedSalary) && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">求职期望</h2>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+              {data.jobIntention.targetJob && <span>期望：{data.jobIntention.targetJob}</span>}
+              {data.jobIntention.targetCity && <span>城市：{data.jobIntention.targetCity}</span>}
+              {data.jobIntention.expectedSalary && <span>薪资：{data.jobIntention.expectedSalary}</span>}
+            </div>
+          </section>
+        )}
+
+        {data.work.filter((w) => !w.isHidden).length > 0 && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">工作经历</h2>
+            <div className="space-y-4">
+              {data.work.filter((w) => !w.isHidden).map((w) => (
+                <div key={w.id} className="text-sm">
+                  <div className="flex flex-wrap justify-between gap-1 font-bold mb-1">
+                    <span>{w.duration}</span>
+                    <span>{w.company}</span>
+                    <span>{w.position}</span>
+                  </div>
+                  <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{w.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.education.filter((e) => !e.isHidden).length > 0 && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">教育经历</h2>
+            <div className="space-y-2">
+              {data.education.filter((e) => !e.isHidden).map((e) => (
+                <div key={e.id} className="flex flex-wrap justify-between gap-2 text-sm font-medium">
+                  <span>{e.year}</span>
+                  <span>{e.school}</span>
+                  <span className="text-gray-600">{e.degree}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {skillTagList.length > 0 && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">技能标签</h2>
+            <div className="flex flex-wrap gap-2">
+              {skillTagList.map((tag) => (
+                <span key={tag} className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">{tag}</span>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.basics.summary && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">个人亮点</h2>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{data.basics.summary}</p>
+          </section>
+        )}
+
+        {data.projects.filter((p) => !p.isHidden).length > 0 && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">项目经验</h2>
+            <div className="space-y-4">
+              {data.projects.filter((p) => !p.isHidden).map((p) => (
+                <div key={p.id} className="text-sm">
+                  <div className="flex flex-wrap justify-between gap-1 font-bold mb-1">
+                    <span>{p.duration}</span>
+                    <span>{p.name}</span>
+                    <span>{p.role}</span>
+                  </div>
+                  {p.technologies && <div className="text-gray-500 mb-1">技术栈：{p.technologies}</div>}
+                  <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{p.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.awards && data.awards.filter((a) => !a.isHidden).length > 0 && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">获奖情况</h2>
+            <div className="space-y-2 text-sm">
+              {data.awards.filter((a) => !a.isHidden).map((a) => (
+                <div key={a.id}>
+                  <div className="flex justify-between font-bold"><span>{a.name}</span><span className="text-gray-500 font-medium">{a.date}</span></div>
+                  {a.description && <p className="text-gray-600 whitespace-pre-wrap mt-1">{a.description}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.certifications && data.certifications.filter((c) => !c.isHidden).length > 0 && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">资格证书</h2>
+            <div className="space-y-2 text-sm">
+              {data.certifications.filter((c) => !c.isHidden).map((c) => (
+                <div key={c.id} className="flex justify-between"><span className="font-bold">{c.name}</span><span className="text-gray-500">{c.date}</span></div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.portfolio && data.portfolio.filter((p) => !p.isHidden).length > 0 && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">作品集</h2>
+            <div className="space-y-2 text-sm">
+              {data.portfolio.filter((p) => !p.isHidden).map((p) => (
+                <div key={p.id}>
+                  <div className="font-bold">{p.title}</div>
+                  {p.link && <a href={p.link} className="text-blue-600 break-all" target="_blank" rel="noopener noreferrer">{p.link}</a>}
+                  {p.description && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{p.description}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.hobbies && !skillTagList.length && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">兴趣爱好</h2>
+            <p className="text-sm text-gray-700">{data.hobbies}</p>
+          </section>
+        )}
+        {data.hobbies && skillTagList.length > 0 && (
+          <p className="text-sm text-gray-600"><span className="font-bold text-gray-800">兴趣爱好：</span>{data.hobbies}</p>
+        )}
+        {data.skills && skillTagList.length === 0 && (
+          <section>
+            <h2 className="inline-block bg-[#1e3a5f] text-white text-sm font-bold px-4 py-1.5 rounded-r-xl mb-3">专业技能</h2>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.skills}</p>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+
+  // 模板 7: 清新卡片 — 浅蓝底 + 白卡片 + 「//」标题线
+  const SectionSlash = ({ title }: { title: string }) => (
+    <div className="flex items-center gap-2 mb-3">
+      <span className="text-[#3b82f6] font-black tracking-tighter text-lg">//</span>
+      <h2 className="text-base font-bold text-gray-900 whitespace-nowrap">{title}</h2>
+      <div className="flex-1 h-px bg-[#93c5fd]" />
+    </div>
+  );
+
+  const renderTemplate7 = () => (
+    <div className="bg-[#c8d6f0] text-gray-800 font-sans w-full max-w-[800px] min-h-[800px] md:min-h-[1131px] mx-auto shadow-lg print:shadow-none print:m-0 break-words">
+      <div className="px-5 md:px-8 pt-6 pb-3 flex items-start gap-4 relative overflow-hidden">
+        <div className="absolute right-4 top-8 text-5xl md:text-7xl font-black text-white/40 tracking-widest select-none pointer-events-none">RESUME</div>
+        <div className="flex-1 relative z-10">
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{data.basics.name || '姓名'}</h1>
+          <div className="h-px bg-gray-400/50 mb-3 max-w-xs" />
+          <div className="text-xs text-gray-600 mb-3 flex flex-wrap gap-x-2">
+            {data.basics.gender && <span>{data.basics.gender}</span>}
+            {data.basics.age && <span>{data.basics.age}</span>}
+            {eduDegree() && <span>{eduDegree()}</span>}
+            {data.basics.workYears && <span>| {data.basics.workYears}</span>}
+            {data.jobIntention?.targetJob && <span>| {data.jobIntention.targetJob}</span>}
+          </div>
+          <div className="space-y-1.5 text-sm text-gray-700">
+            {data.basics.phone && (
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#3b82f6] text-white text-[10px] flex items-center justify-center shrink-0">☎</span>
+                {data.basics.phone}
+              </div>
+            )}
+            {data.basics.email && (
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#3b82f6] text-white text-[10px] flex items-center justify-center shrink-0">✉</span>
+                <span className="break-all">{data.basics.email}</span>
+              </div>
+            )}
+            {(data.basics.residence || data.jobIntention?.targetCity) && (
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#3b82f6] text-white text-[10px] flex items-center justify-center shrink-0">📍</span>
+                {data.basics.residence || data.jobIntention?.targetCity}
+              </div>
+            )}
+          </div>
+        </div>
+        {data.basics.avatar ? (
+          <img src={data.basics.avatar} alt="Avatar" className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-4 border-white shadow relative z-10 shrink-0" />
+        ) : (
+          <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white shadow flex items-center justify-center text-2xl font-bold text-[#3b82f6] relative z-10 shrink-0">
+            {(data.basics.name || '名')[0]}
+          </div>
+        )}
+      </div>
+
+      <div className="mx-3 md:mx-5 mb-5 bg-white rounded-2xl p-5 md:p-7 shadow-sm space-y-5">
+        {data.jobIntention && (data.jobIntention.targetJob || data.jobIntention.targetCity || data.jobIntention.expectedSalary) && (
+          <section>
+            <SectionSlash title="求职期望" />
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+              {data.jobIntention.targetJob && <span>{data.jobIntention.targetJob}</span>}
+              {data.jobIntention.targetCity && <span>{data.jobIntention.targetCity}</span>}
+              {data.jobIntention.expectedSalary && <span>{data.jobIntention.expectedSalary}</span>}
+            </div>
+          </section>
+        )}
+
+        {data.work.filter((w) => !w.isHidden).length > 0 && (
+          <section>
+            <SectionSlash title="工作经历" />
+            <div className="space-y-4">
+              {data.work.filter((w) => !w.isHidden).map((w) => (
+                <div key={w.id} className="text-sm">
+                  <div className="flex flex-wrap justify-between gap-1 font-bold text-gray-900 mb-1">
+                    <span>{w.duration}</span>
+                    <span>{w.company}</span>
+                    <span>{w.position}</span>
+                  </div>
+                  <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{w.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.education.filter((e) => !e.isHidden).length > 0 && (
+          <section>
+            <SectionSlash title="教育经历" />
+            <div className="space-y-2">
+              {data.education.filter((e) => !e.isHidden).map((e) => (
+                <div key={e.id} className="flex flex-wrap justify-between gap-2 text-sm font-medium">
+                  <span>{e.year}</span>
+                  <span>{e.school}</span>
+                  <span className="text-gray-600">{e.degree}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {(skillTagList.length > 0 || data.skills) && (
+          <section>
+            <SectionSlash title="技能标签" />
+            {skillTagList.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {skillTagList.map((tag) => (
+                  <span key={tag} className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">{tag}</span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.skills}</p>
+            )}
+          </section>
+        )}
+
+        {data.basics.summary && (
+          <section>
+            <SectionSlash title="个人亮点" />
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{data.basics.summary}</p>
+          </section>
+        )}
+
+        {data.projects.filter((p) => !p.isHidden).length > 0 && (
+          <section>
+            <SectionSlash title="项目经验" />
+            <div className="space-y-4">
+              {data.projects.filter((p) => !p.isHidden).map((p) => (
+                <div key={p.id} className="text-sm">
+                  <div className="flex flex-wrap justify-between gap-1 font-bold mb-1">
+                    <span>{p.duration}</span>
+                    <span>{p.name}</span>
+                    <span>{p.role}</span>
+                  </div>
+                  {p.technologies && <div className="text-[#3b82f6] text-xs mb-1">{p.technologies}</div>}
+                  <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{p.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.awards && data.awards.filter((a) => !a.isHidden).length > 0 && (
+          <section>
+            <SectionSlash title="获奖情况" />
+            <div className="space-y-2 text-sm">
+              {data.awards.filter((a) => !a.isHidden).map((a) => (
+                <div key={a.id}>
+                  <div className="flex justify-between font-bold"><span>{a.name}</span><span className="font-medium text-gray-500">{a.date}</span></div>
+                  {a.description && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{a.description}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.certifications && data.certifications.filter((c) => !c.isHidden).length > 0 && (
+          <section>
+            <SectionSlash title="资格证书" />
+            <div className="space-y-1 text-sm">
+              {data.certifications.filter((c) => !c.isHidden).map((c) => (
+                <div key={c.id} className="flex justify-between"><span className="font-bold">{c.name}</span><span className="text-gray-500">{c.date}</span></div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.portfolio && data.portfolio.filter((p) => !p.isHidden).length > 0 && (
+          <section>
+            <SectionSlash title="作品集" />
+            <div className="space-y-2 text-sm">
+              {data.portfolio.filter((p) => !p.isHidden).map((p) => (
+                <div key={p.id}>
+                  <div className="font-bold">{p.title}</div>
+                  {p.link && <a href={p.link} className="text-[#3b82f6] break-all" target="_blank" rel="noopener noreferrer">{p.link}</a>}
+                  {p.description && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{p.description}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.hobbies && (
+          <section>
+            <SectionSlash title="兴趣爱好" />
+            <p className="text-sm text-gray-700">{data.hobbies}</p>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+
+  // 模板 8: 图标专业 — 圆形图标章节 + 右侧「简历」丝带
+  const IconTitle = ({ icon, title }: { icon: string; title: string }) => (
+    <div className="flex items-center gap-2.5 mb-3 pb-2 border-b border-gray-100">
+      <span className="w-8 h-8 rounded-full bg-[#2563eb] text-white text-sm flex items-center justify-center shrink-0 shadow-sm">{icon}</span>
+      <h2 className="text-base font-bold text-gray-900">{title}</h2>
+    </div>
+  );
+
+  const renderTemplate8 = () => (
+    <div className="bg-white text-gray-800 font-sans w-full max-w-[800px] min-h-[800px] md:min-h-[1131px] mx-auto shadow-lg print:shadow-none print:m-0 break-words relative overflow-hidden">
+      <div className="absolute right-0 top-0 w-10 md:w-12 bg-[#2563eb] text-white text-center py-3 text-xs font-bold tracking-widest writing-vertical-rl" style={{ writingMode: 'vertical-rl' }}>
+        简历
+      </div>
+
+      <header className="px-6 md:px-10 pt-7 pb-5 flex items-center gap-5 border-b border-gray-100 pr-14">
+        {data.basics.avatar ? (
+          <img src={data.basics.avatar} alt="Avatar" className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-2 border-[#2563eb]/30 shrink-0" />
+        ) : (
+          <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-[#eff6ff] text-[#2563eb] flex items-center justify-center text-2xl font-bold shrink-0">
+            {(data.basics.name || '名')[0]}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">{data.basics.name || '姓名'}</h1>
+          <div className="text-xs text-gray-500 mb-2 flex flex-wrap gap-x-2">
+            {data.basics.gender && <span>{data.basics.gender}</span>}
+            {data.basics.age && <span>{data.basics.age}</span>}
+            {eduDegree() && <span>{eduDegree()}</span>}
+            {data.basics.workYears && <span>| {data.basics.workYears}</span>}
+            {data.basics.residence && <span>| {data.basics.residence}</span>}
+            {!data.basics.residence && data.jobIntention?.targetCity && <span>| {data.jobIntention.targetCity}</span>}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+            {data.basics.phone && <span>☎ {data.basics.phone}</span>}
+            {data.basics.email && <span className="break-all">✉ {data.basics.email}</span>}
+          </div>
+        </div>
+      </header>
+
+      <div className="px-6 md:px-10 py-6 space-y-5 pr-14">
+        {data.jobIntention && (data.jobIntention.targetJob || data.jobIntention.targetCity || data.jobIntention.expectedSalary) && (
+          <section>
+            <IconTitle icon="◎" title="求职期望" />
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+              {data.jobIntention.targetJob && <span>期望：{data.jobIntention.targetJob}</span>}
+              {data.jobIntention.targetCity && <span>城市：{data.jobIntention.targetCity}</span>}
+              {data.jobIntention.expectedSalary && <span>薪资：{data.jobIntention.expectedSalary}</span>}
+            </div>
+          </section>
+        )}
+
+        {data.work.filter((w) => !w.isHidden).length > 0 && (
+          <section>
+            <IconTitle icon="▣" title="工作经历" />
+            <div className="space-y-4">
+              {data.work.filter((w) => !w.isHidden).map((w) => (
+                <div key={w.id} className="text-sm">
+                  <div className="flex flex-wrap justify-between gap-1 font-bold mb-1">
+                    <span className="text-[#2563eb]">{w.duration}</span>
+                    <span>{w.company}</span>
+                    <span>{w.position}</span>
+                  </div>
+                  <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{w.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.education.filter((e) => !e.isHidden).length > 0 && (
+          <section>
+            <IconTitle icon="🎓" title="教育经历" />
+            <div className="space-y-2">
+              {data.education.filter((e) => !e.isHidden).map((e) => (
+                <div key={e.id} className="flex flex-wrap justify-between gap-2 text-sm">
+                  <span className="font-bold text-[#2563eb]">{e.year}</span>
+                  <span className="font-bold">{e.school}</span>
+                  <span className="text-gray-600">{e.degree}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {(skillTagList.length > 0 || data.skills) && (
+          <section>
+            <IconTitle icon="★" title="技能标签" />
+            {skillTagList.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm text-gray-700">
+                {skillTagList.map((tag) => (
+                  <div key={tag} className="py-1">{tag}</div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.skills}</p>
+            )}
+          </section>
+        )}
+
+        {data.basics.summary && (
+          <section>
+            <IconTitle icon="♥" title="个人亮点" />
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{data.basics.summary}</p>
+          </section>
+        )}
+
+        {data.projects.filter((p) => !p.isHidden).length > 0 && (
+          <section>
+            <IconTitle icon="◆" title="项目经验" />
+            <div className="space-y-4">
+              {data.projects.filter((p) => !p.isHidden).map((p) => (
+                <div key={p.id} className="text-sm">
+                  <div className="flex flex-wrap justify-between gap-1 font-bold mb-1">
+                    <span className="text-[#2563eb]">{p.duration}</span>
+                    <span>{p.name}</span>
+                    <span>{p.role}</span>
+                  </div>
+                  {p.technologies && <div className="text-gray-500 text-xs mb-1">技术栈：{p.technologies}</div>}
+                  <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{p.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.awards && data.awards.filter((a) => !a.isHidden).length > 0 && (
+          <section>
+            <IconTitle icon="🏅" title="获奖情况" />
+            <div className="space-y-2 text-sm">
+              {data.awards.filter((a) => !a.isHidden).map((a) => (
+                <div key={a.id}>
+                  <div className="flex justify-between font-bold"><span>{a.name}</span><span className="text-gray-500 font-medium">{a.date}</span></div>
+                  {a.description && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{a.description}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.certifications && data.certifications.filter((c) => !c.isHidden).length > 0 && (
+          <section>
+            <IconTitle icon="📜" title="资格证书" />
+            <div className="space-y-1 text-sm">
+              {data.certifications.filter((c) => !c.isHidden).map((c) => (
+                <div key={c.id} className="flex justify-between"><span className="font-bold">{c.name}</span><span className="text-gray-500">{c.date}</span></div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.portfolio && data.portfolio.filter((p) => !p.isHidden).length > 0 && (
+          <section>
+            <IconTitle icon="🖼" title="作品集" />
+            <div className="space-y-2 text-sm">
+              {data.portfolio.filter((p) => !p.isHidden).map((p) => (
+                <div key={p.id}>
+                  <div className="font-bold">{p.title}</div>
+                  {p.link && <a href={p.link} className="text-[#2563eb] break-all" target="_blank" rel="noopener noreferrer">{p.link}</a>}
+                  {p.description && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{p.description}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.hobbies && (
+          <section>
+            <IconTitle icon="♫" title="兴趣爱好" />
+            <p className="text-sm text-gray-700">{data.hobbies}</p>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+
+  // 模板 9: 斜切标签 — 居中头像卡片 + 斜切色块章节标题
+  const CutTab = ({ title }: { title: string }) => (
+    <div className="flex items-stretch mb-3">
+      <div
+        className="bg-[#1a2744] text-white text-sm font-bold px-4 py-1.5"
+        style={{ clipPath: 'polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%)' }}
+      >
+        {title}
+      </div>
+      <div className="flex-1 border-b border-gray-200 self-end mb-0.5" />
+    </div>
+  );
+
+  const renderTemplate9 = () => (
+    <div className="bg-white text-gray-800 font-sans w-full max-w-[800px] min-h-[800px] md:min-h-[1131px] mx-auto shadow-lg print:shadow-none print:m-0 break-words overflow-hidden">
+      <div className="bg-[#1a2744] h-28 md:h-32 relative">
+        <div className="absolute left-1/2 -translate-x-1/2 top-10 md:top-12 flex flex-col items-center w-[90%] max-w-md">
+          {data.basics.avatar ? (
+            <img src={data.basics.avatar} alt="Avatar" className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-4 border-white shadow-lg z-10" />
+          ) : (
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white border-4 border-white shadow-lg z-10 flex items-center justify-center text-2xl font-bold text-[#1a2744]">
+              {(data.basics.name || '名')[0]}
+            </div>
+          )}
+          <div className="bg-white rounded-xl shadow-md w-full -mt-10 pt-12 pb-4 px-5 text-center">
+            <h1 className="text-xl md:text-2xl font-bold mb-1">{data.basics.name || '姓名'}</h1>
+            <div className="text-xs text-gray-500 mb-2 flex flex-wrap justify-center gap-x-2">
+              {data.basics.gender && <span>{data.basics.gender}</span>}
+              {data.basics.age && <span>{data.basics.age}</span>}
+              {eduDegree() && <span>{eduDegree()}</span>}
+              {data.basics.workYears && <span>| {data.basics.workYears}</span>}
+            </div>
+            <div className="space-y-1 text-xs md:text-sm text-gray-600">
+              {data.basics.phone && <div>☎ {data.basics.phone}</div>}
+              {data.basics.email && <div className="break-all">✉ {data.basics.email}</div>}
+              {(data.basics.residence || data.jobIntention?.targetCity) && (
+                <div>📍 {data.basics.residence || data.jobIntention?.targetCity}</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-6 md:px-10 pt-36 md:pt-40 pb-6 space-y-5">
+        {data.jobIntention && (data.jobIntention.targetJob || data.jobIntention.targetCity || data.jobIntention.expectedSalary) && (
+          <section>
+            <CutTab title="求职期望" />
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-700">
+              {data.jobIntention.targetJob && <span>期望：{data.jobIntention.targetJob}</span>}
+              {data.jobIntention.targetCity && <span>城市：{data.jobIntention.targetCity}</span>}
+              {data.jobIntention.expectedSalary && <span>薪资：{data.jobIntention.expectedSalary}</span>}
+            </div>
+          </section>
+        )}
+
+        {data.work.filter((w) => !w.isHidden).length > 0 && (
+          <section>
+            <CutTab title="工作经历" />
+            <div className="space-y-4">
+              {data.work.filter((w) => !w.isHidden).map((w) => (
+                <div key={w.id} className="text-sm">
+                  <div className="flex flex-wrap justify-between gap-1 font-bold mb-1">
+                    <span>{w.duration}</span>
+                    <span>{w.company}</span>
+                    <span>{w.position}</span>
+                  </div>
+                  <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{w.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.education.filter((e) => !e.isHidden).length > 0 && (
+          <section>
+            <CutTab title="教育经历" />
+            <div className="space-y-2">
+              {data.education.filter((e) => !e.isHidden).map((e) => (
+                <div key={e.id} className="flex flex-wrap justify-between gap-2 text-sm font-medium">
+                  <span>{e.year}</span>
+                  <span>{e.school}</span>
+                  <span className="text-gray-600">{e.degree}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {(skillTagList.length > 0 || data.skills) && (
+          <section>
+            <CutTab title="技能标签" />
+            {skillTagList.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {skillTagList.map((tag) => (
+                  <span key={tag} className="px-3 py-1 rounded-md bg-gray-100 text-gray-700 text-xs">{tag}</span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{data.skills}</p>
+            )}
+          </section>
+        )}
+
+        {data.basics.summary && (
+          <section>
+            <CutTab title="个人亮点" />
+            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{data.basics.summary}</p>
+          </section>
+        )}
+
+        {data.projects.filter((p) => !p.isHidden).length > 0 && (
+          <section>
+            <CutTab title="项目经验" />
+            <div className="space-y-4">
+              {data.projects.filter((p) => !p.isHidden).map((p) => (
+                <div key={p.id} className="text-sm">
+                  <div className="flex flex-wrap justify-between gap-1 font-bold mb-1">
+                    <span>{p.duration}</span>
+                    <span>{p.name}</span>
+                    <span>{p.role}</span>
+                  </div>
+                  {p.technologies && <div className="text-gray-500 text-xs mb-1">技术栈：{p.technologies}</div>}
+                  <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{p.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.awards && data.awards.filter((a) => !a.isHidden).length > 0 && (
+          <section>
+            <CutTab title="获奖情况" />
+            <div className="space-y-2 text-sm">
+              {data.awards.filter((a) => !a.isHidden).map((a) => (
+                <div key={a.id}>
+                  <div className="flex justify-between font-bold"><span>{a.name}</span><span className="text-gray-500 font-medium">{a.date}</span></div>
+                  {a.description && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{a.description}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.certifications && data.certifications.filter((c) => !c.isHidden).length > 0 && (
+          <section>
+            <CutTab title="资格证书" />
+            <div className="space-y-1 text-sm">
+              {data.certifications.filter((c) => !c.isHidden).map((c) => (
+                <div key={c.id} className="flex justify-between"><span className="font-bold">{c.name}</span><span className="text-gray-500">{c.date}</span></div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.portfolio && data.portfolio.filter((p) => !p.isHidden).length > 0 && (
+          <section>
+            <CutTab title="作品集" />
+            <div className="space-y-2 text-sm">
+              {data.portfolio.filter((p) => !p.isHidden).map((p) => (
+                <div key={p.id}>
+                  <div className="font-bold">{p.title}</div>
+                  {p.link && <a href={p.link} className="text-[#1a2744] break-all" target="_blank" rel="noopener noreferrer">{p.link}</a>}
+                  {p.description && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{p.description}</p>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {data.hobbies && (
+          <section>
+            <CutTab title="兴趣爱好" />
+            <p className="text-sm text-gray-700">{data.hobbies}</p>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+
   const renderTemplate = () => {
     switch (templateId) {
       case 'template1':
@@ -991,6 +1774,14 @@ export function ResumePreview({ data, templateId, template }: PreviewProps) {
         return renderTemplate3();
       case 'template4':
         return renderTemplate4();
+      case 'template6':
+        return renderTemplate6();
+      case 'template7':
+        return renderTemplate7();
+      case 'template8':
+        return renderTemplate8();
+      case 'template9':
+        return renderTemplate9();
       default:
         return renderTemplate1();
     }
